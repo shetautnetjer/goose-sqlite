@@ -1,9 +1,15 @@
 # goose-sqlite
 
 [SQLite](https://sqlite.org) for [Goose](https://aardappel.github.io/goose/)
-programs: the amalgamation (3.54.1, in `vendor/`) and a thin C shim, as a
-Goose package. Its native part is built once per C compiler and cached by
-Goose, so SQLite's 9 MB of C never adds to your program's build.
+programs: a Goose API and helpers over a thin C shim and the SQLite 3.54.1
+C amalgamation in `vendor/`. It can be imported independently of Swan,
+tree-sitter, or any language server.
+
+The first build that uses SQLite compiles its native sources. Goose caches
+that native build for reuse by compatible later builds; a cold cache or
+changed native inputs requires recompilation. The small Goose layer is
+compiled with the consuming program. This is a Goose package around SQLite,
+not a rewrite of SQLite in Goose.
 
 ## Use
 
@@ -33,6 +39,31 @@ A database or statement is an i64 handle. `open`, `close`, `exec`, `prepare`,
 
 Built with `SQLITE_OMIT_LOAD_EXTENSION`, `SQLITE_THREADSAFE=0`,
 `SQLITE_DQS=0` and `SQLITE_DEFAULT_MEMSTATUS=0`.
+
+The caller owns each handle: finalize statements and close databases, and
+do not reuse released handles. `reset` also clears parameter bindings.
+Text and error builders are appended to, so clear them when starting a new
+result. SQLite mutexes are disabled; callers must serialize access to this
+package across threads. The API does not provide automatic lifetime or
+transaction management.
+
+## Standalone tests
+
+With Goose v2026.3 and a C compiler already installed:
+
+```bash
+GOOSE=/path/to/goose scripts/test.sh
+```
+
+The test imports this checkout with `import sqlite from "..";` and uses an
+in-memory database. It covers parameter binding, exact text bytes and copied
+bindings, 64-bit values, row iteration, statement reset, transaction
+commit/rollback, SQL errors, constraint errors, and recovery after a failed
+step. Swan and external services are not required. Builds run offline;
+the runner defaults to `.test-build/` for outputs and its Goose cache.
+Set `TEST_BUILD_DIR` and `GOOSE_HOME` to reuse other local output/cache paths.
+The package sidecar excludes `tests/`, keeping test entry points out of
+consuming programs.
 
 ## License
 
