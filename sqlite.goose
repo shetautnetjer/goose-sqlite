@@ -2,7 +2,7 @@
 // thin C shim (src/gsq.c). A database or a prepared statement is an i64
 // handle; 0 means it failed and the reason is in `err`.
 //
-//   import sqlite from "shetautnetjer/goose-sqlite@v0.1.0";   // in the root file
+//   import sqlite from "shetautnetjer/goose-sqlite@v0.1.1";   // in the root file
 //   let db = sqlite::open("map.db", err);
 //   let st = sqlite::prepare(db, "SELECT name FROM t WHERE id = ?1", err);
 //   sqlite::bind_int(st, 1, 7);

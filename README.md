@@ -1,5 +1,15 @@
 # goose-sqlite
 
+**In plain words:** a small, ready-made piece that lets any program written in
+Goose keep data in a SQLite database, the same tiny database engine phones
+and browsers use. Swan stores its whole code map this way. Add one line to
+your program and Goose downloads and builds it for you; after the first
+build it is cached, so later builds take a fraction of a second.
+
+**Status (2026-10-26):** 43 standalone checks pass (`scripts/test.sh`, no
+network or other tools needed). Used every day by
+[Swan](https://github.com/shetautnetjer/Swan).
+
 [SQLite](https://sqlite.org) for [Goose](https://aardappel.github.io/goose/)
 programs: a Goose API and helpers over a thin C shim and the SQLite 3.54.1
 C amalgamation in `vendor/`. It can be imported independently of Swan,
@@ -16,7 +26,7 @@ not a rewrite of SQLite in Goose.
 In your root file:
 
 ```goose
-import sqlite from "shetautnetjer/goose-sqlite@v0.1.0";
+import sqlite from "shetautnetjer/goose-sqlite@v0.1.1";
 ```
 
 ```goose
