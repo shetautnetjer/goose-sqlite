@@ -1,0 +1,5 @@
+// The amalgamation and the shim, built once per C compiler and cached.
+c_sources = ["src/gsq.c", "vendor/sqlite3.c"];
+c_include = ["vendor"];
+c_defines = ["SQLITE_OMIT_LOAD_EXTENSION=1", "SQLITE_THREADSAFE=0", "SQLITE_DQS=0", "SQLITE_DEFAULT_MEMSTATUS=0"];
+exclude = ["examples", "tests"];
