@@ -1,5 +1,6 @@
 // Exercise the package through its public API, without Swan or a file database.
 import std;
+import os;
 import sqlite from "..";
 
 var checks: i64 = 0;
@@ -19,7 +20,22 @@ fn scalar(db: i64, sql: const u8[:]) -> i64 {
     return result;
 }
 
+// Run by scripts/test.sh as `api step-done-error`: a statement whose first
+// row is fine and whose second fails. step_done must reach the failure and
+// abort with it (the old step_done stopped after the first row and did not).
+fn step_done_error() {
+    var err: u8[>..] = [];
+    let db = sqlite::open(":memory:", err);
+    let st = sqlite::prepare_or_die(db, """
+        SELECT CASE WHEN column1 = 2 THEN abs(-9223372036854775807 - 1) ELSE column1 END FROM (VALUES (1), (2))
+        """);
+    sqlite::step_done(st);
+    print("step_done returned without the error");
+}
+
 fn main() {
+    let a = args();
+    if a.len > 1 && a[1] == "step-done-error" { step_done_error(); return; }
     var err: u8[>..] = [];
     check(sqlite::open("", err) == 0, "empty path rejected");
     check(err == "bad path", "open error text");
@@ -100,6 +116,23 @@ fn main() {
     check(sqlite::step(duplicate, err) == 0, "statement reusable after error/reset");
     sqlite::finalize(duplicate);
     check(scalar(db, "SELECT count(*) FROM t") == 4, "failed insert did not add row");
+    // A NUL ends the SQL (SQLite reads no further): trailing NULs are the
+    // end, text after one is an error; neither may loop forever.
+    var nul_sql: u8[>..] = [];
+    format(nul_sql, "SELECT 1;");
+    nul_sql.push(0);
+    check(sqlite::exec(db, nul_sql, err), "exec stops at a trailing NUL");
+    format(nul_sql, "SELECT 2;");
+    check(!sqlite::exec(db, nul_sql, err), "exec refuses SQL after a NUL");
+    check(err == "SQL holds a NUL byte", "NUL error text");
+    err.clear();
+    // step_done finishes a statement that returns rows.
+    let returning = sqlite::prepare_or_die(db, "INSERT INTO t (id, name) VALUES (?1, ?2) RETURNING id");
+    check(sqlite::bind_int(returning, 1, 6), "bind RETURNING id");
+    check(sqlite::bind_text(returning, 2, "returned"), "bind RETURNING name");
+    sqlite::step_done(returning);
+    sqlite::finalize(returning);
+    check(scalar(db, "SELECT count(*) FROM t WHERE id = 6") == 1, "step_done ran the RETURNING insert");
     sqlite::close(db);
     print("PASS error paths and recovery");
     print("goose-sqlite: ", checks, " standalone API checks passed");

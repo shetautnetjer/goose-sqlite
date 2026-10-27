@@ -40,9 +40,13 @@ fn prepare_or_die(db: i64, sql: const u8[:]) -> i64 {
     return st;
 }
 
-// Runs an insert or update that was bound already, then resets it.
+// Runs an insert or update that was bound already, then resets it. Rows it
+// returns (RETURNING) are stepped through: the statement is done, and any
+// error it meets on the way is reported, only once it says so.
 fn step_done(st: i64) {
     var err: u8[>..] = [];
-    if step(st, err) < 0 { abort(str("sqlite: ", err)); }
+    var r = step(st, err);
+    while r == 1 { r = step(st, err); }
+    if r < 0 { abort(str("sqlite: ", err)); }
     reset(st);
 }
