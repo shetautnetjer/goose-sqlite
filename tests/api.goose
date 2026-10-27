@@ -1,5 +1,6 @@
 // Exercise the package through its public API, without Swan or a file database.
 import std;
+import os;
 import sqlite from "..";
 
 var checks: i64 = 0;
@@ -19,7 +20,22 @@ fn scalar(db: i64, sql: const u8[:]) -> i64 {
     return result;
 }
 
+// Run by scripts/test.sh as `api step-done-error`: a statement whose first
+// row is fine and whose second fails. step_done must reach the failure and
+// abort with it (the old step_done stopped after the first row and did not).
+fn step_done_error() {
+    var err: u8[>..] = [];
+    let db = sqlite::open(":memory:", err);
+    let st = sqlite::prepare_or_die(db, """
+        SELECT CASE WHEN column1 = 2 THEN abs(-9223372036854775807 - 1) ELSE column1 END FROM (VALUES (1), (2))
+        """);
+    sqlite::step_done(st);
+    print("step_done returned without the error");
+}
+
 fn main() {
+    let a = args();
+    if a.len > 1 && a[1] == "step-done-error" { step_done_error(); return; }
     var err: u8[>..] = [];
     check(sqlite::open("", err) == 0, "empty path rejected");
     check(err == "bad path", "open error text");
