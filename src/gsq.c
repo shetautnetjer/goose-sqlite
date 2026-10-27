@@ -6,6 +6,7 @@
 #include "sqlite3.h"
 #include <string.h>
 #include <stdio.h>
+#include <limits.h>
 
 typedef struct { const uint8_t *data; int64_t len; } gsq_slice;
 
@@ -31,9 +32,13 @@ int64_t gsq_open(gsq_slice path, gs_rref err) {
 
 void gsq_close(int64_t h) { sqlite3_close_v2((sqlite3 *)(intptr_t)h); }
 
+/* SQLite takes lengths as int: longer text is refused, not wrapped. */
+static bool fits_int(int64_t len) { return len >= 0 && len <= INT_MAX; }
+
 /* Runs one or more statements that return no rows. */
 bool gsq_exec(int64_t h, gsq_slice sql, gs_rref err) {
     sqlite3 *db = (sqlite3 *)(intptr_t)h;
+    if (!fits_int(sql.len)) { append_cstr(err, "SQL longer than SQLite accepts"); return false; }
     const char *p = (const char *)sql.data, *end = p + sql.len;
     while (p < end) {
         sqlite3_stmt *st = NULL;
@@ -41,6 +46,14 @@ bool gsq_exec(int64_t h, gsq_slice sql, gs_rref err) {
         if (sqlite3_prepare_v2(db, p, (int)(end - p), &st, &tail) != SQLITE_OK) {
             append_cstr(err, sqlite3_errmsg(db));
             return false;
+        }
+        /* SQLite stops at a NUL byte, so the text from there is never
+           parsed: NULs at the end are the end; anything after one is an
+           error rather than a loop that makes no progress. */
+        if (!st && (!tail || tail <= p)) {
+            for (const char *q = p; q < end; q++)
+                if (*q != 0) { append_cstr(err, "SQL holds a NUL byte"); return false; }
+            return true;
         }
         if (st) {
             int rc;
@@ -55,6 +68,7 @@ bool gsq_exec(int64_t h, gsq_slice sql, gs_rref err) {
 
 int64_t gsq_prepare(int64_t h, gsq_slice sql, gs_rref err) {
     sqlite3 *db = (sqlite3 *)(intptr_t)h;
+    if (!fits_int(sql.len)) { append_cstr(err, "SQL longer than SQLite accepts"); return 0; }
     sqlite3_stmt *st = NULL;
     if (sqlite3_prepare_v2(db, (const char *)sql.data, (int)sql.len, &st, NULL) != SQLITE_OK) {
         append_cstr(err, sqlite3_errmsg(db));
@@ -64,6 +78,7 @@ int64_t gsq_prepare(int64_t h, gsq_slice sql, gs_rref err) {
 }
 
 bool gsq_bind_text(int64_t s, int32_t i, gsq_slice v) {
+    if (!fits_int(v.len)) return false;
     return sqlite3_bind_text((sqlite3_stmt *)(intptr_t)s, i, (const char *)v.data, (int)v.len,
                              SQLITE_TRANSIENT) == SQLITE_OK;
 }

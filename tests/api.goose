@@ -100,6 +100,23 @@ fn main() {
     check(sqlite::step(duplicate, err) == 0, "statement reusable after error/reset");
     sqlite::finalize(duplicate);
     check(scalar(db, "SELECT count(*) FROM t") == 4, "failed insert did not add row");
+    // A NUL ends the SQL (SQLite reads no further): trailing NULs are the
+    // end, text after one is an error; neither may loop forever.
+    var nul_sql: u8[>..] = [];
+    format(nul_sql, "SELECT 1;");
+    nul_sql.push(0);
+    check(sqlite::exec(db, nul_sql, err), "exec stops at a trailing NUL");
+    format(nul_sql, "SELECT 2;");
+    check(!sqlite::exec(db, nul_sql, err), "exec refuses SQL after a NUL");
+    check(err == "SQL holds a NUL byte", "NUL error text");
+    err.clear();
+    // step_done finishes a statement that returns rows.
+    let returning = sqlite::prepare_or_die(db, "INSERT INTO t (id, name) VALUES (?1, ?2) RETURNING id");
+    check(sqlite::bind_int(returning, 1, 6), "bind RETURNING id");
+    check(sqlite::bind_text(returning, 2, "returned"), "bind RETURNING name");
+    sqlite::step_done(returning);
+    sqlite::finalize(returning);
+    check(scalar(db, "SELECT count(*) FROM t WHERE id = 6") == 1, "step_done ran the RETURNING insert");
     sqlite::close(db);
     print("PASS error paths and recovery");
     print("goose-sqlite: ", checks, " standalone API checks passed");
