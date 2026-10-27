@@ -1,0 +1,25 @@
+{
+  "autoReview": ["open"],
+  "effort": "base",
+  "strictness": 2,
+  "commentTypes": ["logic", "syntax"],
+  "fixWithAI": true,
+  "ignorePatterns": "vendor/**",
+  "context": {
+    "repos": ["shetautnetjer/Swan"]
+  },
+  "rules": [
+    {
+      "id": "sqlite-errors-surface",
+      "rule": "Every sqlite3 return code (prepare, step, reset, finalize) must reach the Goose caller; never swallow an error from reset or finalize.",
+      "scope": ["src/**", "sqlite.goose"],
+      "severity": "high"
+    },
+    {
+      "id": "slice-bounds",
+      "rule": "C code that takes a Goose slice must handle embedded NUL bytes and lengths above 32 bits without looping forever or truncating silently.",
+      "scope": ["src/**"],
+      "severity": "medium"
+    }
+  ]
+}
