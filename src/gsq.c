@@ -15,20 +15,30 @@ static void append_cstr(gs_rref out, const char *s) {
     if (s) gs_bld_append(out, s, strlen(s));
 }
 
-/* Opens (creating if needed) the database at path. 0 on failure, with the
-   reason appended to err. */
-int64_t gsq_open(gsq_slice path, gs_rref err) {
+/* Both open modes share path/error handling. Creation is an explicit flag. */
+static int64_t open_flags(gsq_slice path, gs_rref err, int flags) {
     char buf[4096];
     if (path.len <= 0 || path.len >= (int64_t)sizeof buf) { append_cstr(err, "bad path"); return 0; }
     memcpy(buf, path.data, (size_t)path.len);
     buf[path.len] = 0;
     sqlite3 *db = NULL;
-    if (sqlite3_open_v2(buf, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL) != SQLITE_OK) {
+    if (sqlite3_open_v2(buf, &db, flags, NULL) != SQLITE_OK) {
         append_cstr(err, db ? sqlite3_errmsg(db) : "out of memory");
         sqlite3_close(db);
         return 0;
     }
     return (int64_t)(intptr_t)db;
+}
+
+/* Opens (creating if needed) the database at path. 0 on failure, with the
+   reason appended to err. */
+int64_t gsq_open(gsq_slice path, gs_rref err) {
+    return open_flags(path, err, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
+}
+
+/* Opening a missing file fails instead of silently creating an empty map. */
+int64_t gsq_open_existing(gsq_slice path, gs_rref err) {
+    return open_flags(path, err, SQLITE_OPEN_READWRITE);
 }
 
 void gsq_close(int64_t h) { sqlite3_close_v2((sqlite3 *)(intptr_t)h); }

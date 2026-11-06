@@ -1,4 +1,4 @@
-// Exercise the package through its public API, without Swan or a file database.
+// Exercise the public API without Swan; file cases use a disposable directory.
 import std;
 import os;
 import sqlite from "..";
@@ -31,6 +31,44 @@ fn step_done_error() {
         """);
     sqlite::step_done(st);
     print("step_done returned without the error");
+}
+
+fn existing_files(folder: const u8[:]) {
+    let path = str(folder, "/existing.db");
+    var err: u8[>..] = [];
+    check(!file_exists(path), "file fixture starts absent");
+    check(sqlite::open_existing(path, err) == 0, "open_existing refuses missing file");
+    check(err.len > 0, "missing file reports open error");
+    check(!file_exists(path), "open_existing did not create missing file");
+    err.clear();
+    let created = sqlite::open(path, err);
+    check(created != 0, "open still creates file");
+    sqlite::exec_or_die(created, "CREATE TABLE t (n INTEGER); INSERT INTO t VALUES (42);");
+    sqlite::close(created);
+    let reopened = sqlite::open_existing(path, err);
+    check(reopened != 0 && err.len == 0, "open_existing opens existing database");
+    check(scalar(reopened, "SELECT n FROM t") == 42, "open_existing reads existing rows");
+    check(sqlite::exec(reopened, "INSERT INTO t VALUES (7)", err), "open_existing permits writes");
+    sqlite::close(reopened);
+    let persisted = sqlite::open_existing(path, err);
+    check(persisted != 0, "open_existing reopens after write");
+    check(scalar(persisted, "SELECT sum(n) FROM t") == 49, "open_existing writes persist");
+    sqlite::close(persisted);
+
+    // Opening is not a schema/integrity check: SQLite may discover an invalid
+    // header only when the first statement reads the database schema.
+    let bad_path = str(folder, "/invalid.db");
+    let invalid = "this is deliberately not a SQLite database\n";
+    check(write_file(bad_path, invalid), "write invalid database fixture");
+    let bad = sqlite::open_existing(bad_path, err);
+    if bad != 0 {
+        check(!sqlite::exec(bad, "SELECT name FROM sqlite_schema", err), "invalid database query fails");
+        sqlite::close(bad);
+    }
+    check(err.len > 0, "invalid database reports an error");
+    var after: u8[>..] = [];
+    check(read_file(bad_path, after) && after == invalid, "invalid database is not overwritten");
+    print("PASS existing-file opens, missing-file refusal, and invalid database errors");
 }
 
 fn main() {
@@ -135,5 +173,6 @@ fn main() {
     check(scalar(db, "SELECT count(*) FROM t WHERE id = 6") == 1, "step_done ran the RETURNING insert");
     sqlite::close(db);
     print("PASS error paths and recovery");
+    if a.len > 1 { existing_files(a[1]); }
     print("goose-sqlite: ", checks, " standalone API checks passed");
 }

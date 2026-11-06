@@ -14,6 +14,7 @@ namespace sqlite;
 import std;
 
 extern "gsq_open" fn open(path: const u8[:], err: u8[>..]&) -> i64;   // creates the file if needed
+extern "gsq_open_existing" fn open_existing(path: const u8[:], err: u8[>..]&) -> i64;   // read/write; never creates a missing file
 extern "gsq_close" fn close(db: i64);
 extern "gsq_exec" fn exec(db: i64, sql: const u8[:], err: u8[>..]&) -> bool;   // one or more statements
 extern "gsq_prepare" fn prepare(db: i64, sql: const u8[:], err: u8[>..]&) -> i64;
