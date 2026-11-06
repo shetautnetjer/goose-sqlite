@@ -5,9 +5,11 @@ here="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$here"
 build="${TEST_BUILD_DIR:-$here/.test-build}"
 mkdir -p "$build"
+scratch="$(mktemp -d "$build/open-existing.XXXXXXXX")"
+trap 'rm -rf "$scratch"' EXIT
 export GOOSE_HOME="${GOOSE_HOME:-$build/goose-home}"
 "${GOOSE:-goose}" build --offline tests/api.goose -o "$build/api"
-"$build/api"
+"$build/api" "$scratch"
 # step_done must report an error past a statement's first row.
 if "$build/api" step-done-error >"$build/step-done.out" 2>&1; then
     echo "FAIL: step_done missed an error after the first row"; cat "$build/step-done.out"; exit 1

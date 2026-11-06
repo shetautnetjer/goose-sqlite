@@ -6,8 +6,8 @@ and browsers use. Swan stores its whole code map this way. Add one line to
 your program and Goose downloads and builds it for you; after the first
 build it is cached, so later builds take a fraction of a second.
 
-**Status (2026-10-26):** 43 standalone checks pass (`scripts/test.sh`, no
-network or other tools needed). Used every day by
+Standalone contract tests are available in `scripts/test.sh` and run offline
+with an installed Goose compiler and C compiler. Used by
 [Swan](https://github.com/shetautnetjer/Swan).
 
 [SQLite](https://sqlite.org) for [Goose](https://aardappel.github.io/goose/)
@@ -41,11 +41,19 @@ sqlite::finalize(st);
 sqlite::close(db);
 ```
 
-A database or statement is an i64 handle. `open`, `close`, `exec`, `prepare`,
+A database or statement is an i64 handle. `open`, `open_existing`, `close`, `exec`, `prepare`,
 `bind_text`, `bind_int`, `step` (1 a row, 0 done, -1 an error), `col_int`,
 `col_text` (appends), `reset`, `finalize`, `last_rowid`, and `exec_or_die`,
 `prepare_or_die`, `step_done` for statements whose failure is a bug. See
 `examples/hello.goose`.
+
+`open` creates a missing file; `open_existing` opens read/write without the
+create flag, returning 0 and an error for a missing file. Use it when a reader
+must not turn a disappeared database into an empty replacement. It is not a
+read-only mode or an integrity/schema check: SQLite may report an invalid file
+only when a statement first reads it. SQLite's special in-memory names retain
+SQLite's behavior. `open_existing` is newer than the published `v0.1.1` example;
+consumers need a reviewed source revision containing this API.
 
 Built with `SQLITE_OMIT_LOAD_EXTENSION`, `SQLITE_THREADSAFE=0`,
 `SQLITE_DQS=0` and `SQLITE_DEFAULT_MEMSTATUS=0`.
@@ -66,10 +74,11 @@ GOOSE=/path/to/goose scripts/test.sh
 ```
 
 The test imports this checkout with `import sqlite from "..";` and uses an
-in-memory database. It covers parameter binding, exact text bytes and copied
+in-memory database plus disposable file databases. It covers parameter binding, exact text bytes and copied
 bindings, 64-bit values, row iteration, statement reset, transaction
 commit/rollback, SQL errors, constraint errors, and recovery after a failed
-step. Swan and external services are not required. Builds run offline;
+step, existing-file reads/writes, missing-file refusal without creation, and
+invalid-file error reporting. Swan and external services are not required. Builds run offline;
 the runner defaults to `.test-build/` for outputs and its Goose cache.
 Set `TEST_BUILD_DIR` and `GOOSE_HOME` to reuse other local output/cache paths.
 The package sidecar excludes `tests/`, keeping test entry points out of
