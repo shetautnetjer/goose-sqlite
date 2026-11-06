@@ -4,6 +4,7 @@
    appending to a Goose builder. Every function is a direct wrapper. */
 #include "goose.h"
 #include "sqlite3.h"
+#include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
 #include <limits.h>
