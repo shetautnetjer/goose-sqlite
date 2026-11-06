@@ -36,6 +36,9 @@ fn step_done_error() {
 fn existing_files(folder: const u8[:]) {
     let path = str(folder, "/existing.db");
     var err: u8[>..] = [];
+    check(sqlite::open_existing("", err) == 0, "open_existing rejects empty path");
+    check(err == "bad path", "open_existing path error text");
+    err.clear();
     check(!file_exists(path), "file fixture starts absent");
     check(sqlite::open_existing(path, err) == 0, "open_existing refuses missing file");
     check(err.len > 0, "missing file reports open error");
